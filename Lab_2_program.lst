@@ -1,0 +1,418 @@
+
+
+
+ARM Macro Assembler    Page 1 
+
+
+    1 00000000         ;*------------------------------------------------------
+                       ----------------------
+    2 00000000         ;* Name:    Lab_2_program.s 
+    3 00000000         ;* Purpose: This code template is for Lab 2
+    4 00000000         ;* Author: Eric Praetzel and Rasoul Keshavarzi 
+    5 00000000         ;*------------------------------------------------------
+                       ----------------------*/
+    6 00000000                 THUMB                        ; Declare THUMB ins
+                                                            truction set 
+    7 00000000                 AREA             My_code, CODE, READONLY ; 
+    8 00000000                 EXPORT           __MAIN      ; Label __MAIN is u
+                                                            sed externally q
+    9 00000000                 ENTRY
+   10 00000000         __MAIN
+   11 00000000 F44F 4240       MOV              R2, #0xC000
+   12 00000004 F04F 4330       MOV              R3, #0xB0000000
+   13 00000008 F04F 0400       MOV              R4, #0x0
+   14 0000000C F2C2 0409       MOVT             R4, #0x2009
+   15 00000010 4414            ADD              R4, R4, R2  ; 0x2009C000 - the 
+                                                            base address for de
+                                                            aling with the port
+                                                            s
+   16 00000012 6223            STR              R3, [r4, #0x20] ; Turn off the 
+                                                            three LEDs on port 
+                                                            1
+   17 00000014 F04F 037C       MOV              R3, #0x0000007C
+   18 00000018 6423            STR              R3, [R4, #0x40] ; Turn off five
+                                                             LEDs on port 2 
+   19 0000001A         
+   20 0000001A         ResetLUT
+   21 0000001A 4D3A            LDR              R5, =InputLUT ; assign R5 to th
+                                                            e address at label 
+                                                            LUT
+   22 0000001C         
+   23 0000001C         NextChar
+   24 0000001C 7828            LDRB             R0, [R5]    ; Read a character 
+                                                            to convert to Morse
+                                                            
+   25 0000001E F105 0501       ADD              R5, #1      ; point to next val
+                                                            ue for number of de
+                                                            lays, jump by 1 byt
+                                                            e
+   26 00000022 F090 0F00       TEQ              R0, #0      ; If we hit 0 (null
+                                                             at end of the stri
+                                                            ng) then reset to t
+                                                            he start of lookup 
+                                                            table
+   27 00000026 D104            BNE              ProcessChar ; If we have a char
+                                                            acter process it
+   28 00000028         
+   29 00000028 F04F 0004       MOV              R0, #4      ; delay 4 extra spa
+                                                            ces (7 total) betwe
+                                                            en words
+   30 0000002C F000 F840       BL               DELAY
+   31 00000030 D0F3            BEQ              ResetLUT
+   32 00000032         
+   33 00000032 F000 F824 
+                       ProcessChar
+                               BL               CHAR2MORSE  ; convert ASCII to 
+
+
+
+ARM Macro Assembler    Page 2 
+
+
+                                                            Morse pattern in R1
+                                                              
+   34 00000036         ; This is a different way to read the bits in the Morse 
+                       Code LUT than is in the lab manual.
+   35 00000036         ;  Choose whichever one you like.
+   36 00000036         ; 
+   37 00000036         ; First - loop until we have a 1 bit to send  (no code p
+                       rovided)
+   38 00000036         
+   39 00000036         ;use R2 as a counter for thr number of iterations. Regis
+                       ter can only hold 16 bits, thus set the init value to 16
+                       
+   40 00000036 F44F 4600       MOV              R6, #0x8000
+   41 0000003A F04F 0210       MOV              R2 , #16
+   42 0000003E         
+   43 0000003E         ;keep left shifting the char until we get rid of all the
+                        leading 0s
+   44 0000003E         RemoveLeadingZeroes
+   45 0000003E EA4F 0141       LSL              R1, R1, #1
+   46 00000042 F1A2 0201       SUB              R2, R2, #1
+   47 00000046 EA11 0706       ANDS             R7, R1, R6
+   48 0000004A D0F8            BEQ              RemoveLeadingZeroes
+   49 0000004C         
+   50 0000004C         NextBit
+   51 0000004C         ;depending on the value of R1 we need to turnt the led o
+                       n/off, thus do a logical AND and on each bit
+   52 0000004C EA11 0706       ANDS             R7, R1, R6
+   53 00000050 BF08 F000 
+              F828             BLEQ             LED_OFF     ; turn off the led
+   54 00000056 BF18 F000 
+              F81F             BLNE             LED_ON      ; turn led on
+   55 0000005C EA4F 0141       LSL              R1, R1, #1  ; done processesing
+                                                             the current char, 
+                                                            now look at the nex
+                                                            t one
+   56 00000060 F04F 0001       MOV              R0 , #1     ; used for delay (.
+                                                            5ms each val in a c
+                                                            har)
+   57 00000064 F1A2 0201       SUB              R2, R2, #1  ; update our counte
+                                                            r
+   58 00000068 F000 F822       BL               DELAY
+   59 0000006C 2A00            CMP              R2, #0x0
+   60 0000006E D1ED            BNE              NextBit
+   61 00000070 F04F 0003       MOV              R0 , #3     ; 3ms delay between
+                                                            e each char
+   62 00000074 F000 F817       BL               LED_OFF
+   63 00000078 F000 F81A       BL               DELAY
+   64 0000007C E7CE            B                NextChar    ; This is the end o
+                                                            f the main program 
+                                                            
+   65 0000007E         
+   66 0000007E         ; Subroutines
+   67 0000007E         
+   68 0000007E E92D 4C00 
+                       CHAR2MORSE
+                               STMFD            R13!,{R10, R11, R14}
+   69 00000082         ; take the current char and subtract. once that is done 
+                       we can multiply it by 2 and lookup the corresponding mor
+                       secode in 
+
+
+
+ARM Macro Assembler    Page 3 
+
+
+   70 00000082         ;the MorseLUT table
+   71 00000082 F1A0 0041       SUB              R0, R0, #0x00000041
+   72 00000086 F04F 0A02       MOV              R10, #0x00000002
+   73 0000008A FB0A F000       MUL              R0, R10, R0
+   74 0000008E         
+   75 0000008E F8DF B078       LDR              R11, =MorseLUT
+   76 00000092 F83B 1000       LDRH             R1, [R11, R0]
+   77 00000096         
+   78 00000096 E8BD 8C00       LDMFD            R13!,{R10, R11, R15} ; restore 
+                                                            LR to R15 the Progr
+                                                            am Counter to retur
+                                                            n
+   79 0000009A         
+   80 0000009A B418    LED_ON  push             {r3-r4}     ; preserve R3 and R
+                                                            4 on the R13 stack
+   81 0000009C F04F 4320       MOV              R3, #0xA0000000 ;
+   82 000000A0 6223            STR              R3, [R4, #0x20]
+   83 000000A2 BC18            pop              {r3-r4}
+   84 000000A4 4770            BX               LR          ; branch to the add
+                                                            ress in the Link Re
+                                                            gister.  Ie return 
+                                                            to the caller
+   85 000000A6         
+   86 000000A6 B508    LED_OFF STMFD            R13!,{R3, R14} ; push R3 and Li
+                                                            nk Register (return
+                                                             address) on stack
+   87 000000A8 F04F 4330       MOV              R3, #0xB0000000 ;
+   88 000000AC 6223            STR              R3, [R4, #0x20]
+   89 000000AE BD08            LDMFD            R13!,{R3, R15} ; restore R3 and
+                                                             LR to R15 the Prog
+                                                            ram Counter to retu
+                                                            rn
+   90 000000B0         
+   91 000000B0         
+   92 000000B0         
+   93 000000B0 E92D 4200 
+                       DELAY   STMFD            R13!,{R9, R14}
+   94 000000B4 F090 0F00 
+                       MultipleDelay
+                               TEQ              R0, #0      ; test R0 to see if
+                                                             it's 0 - set Zero 
+                                                            flag so you can use
+                                                             BEQ, BNE
+   95 000000B8 F64F 79FF       MOV              R9, #0xFFFF
+   96 000000BC F2C0 0905       MOVT             R9, #0x0005
+   97 000000C0 FB00 F009       MUL              R0, R0, R9
+   98 000000C4         
+   99 000000C4         Loop
+  100 000000C4 3801            SUBS             R0, #1      ; Decrement r0 and 
+                                                            set the N,Z,C statu
+                                                            s bits
+  101 000000C6 D1FD            BNE              Loop
+  102 000000C8         
+  103 000000C8 E8BD 8200 
+                       exitDelay
+                               LDMFD            R13!,{R9, R15}
+  104 000000CC         
+  105 000000CC 41 49 00 
+                       InputLUT
+
+
+
+ARM Macro Assembler    Page 4 
+
+
+                               DCB              "AI", 0     ; strings must be s
+                                                            tored, and read, as
+                                                             BYTES
+  106 000000CF         
+  107 000000CF 00              ALIGN                        ; make sure things 
+                                                            fall on word addres
+                                                            ses
+  108 000000D0         MorseLUT
+  109 000000D0 17 00 D5 
+              01 5D 07 
+              75 00            DCW              0x17, 0x1D5, 0x75D, 0x75 
+                                                            ; A, B, C, D
+  110 000000D8 01 00 5D 
+              01 DD 01 
+              55 00            DCW              0x1, 0x15D, 0x1DD, 0x55 
+                                                            ; E, F, G, H
+  111 000000E0 05 00 77 
+              17 D7 01 
+              75 01            DCW              0x5, 0x1777, 0x1D7, 0x175 
+                                                            ; I, J, K, L
+  112 000000E8 77 00 1D 
+              00 77 07 
+              DD 05            DCW              0x77, 0x1D, 0x777, 0x5DD 
+                                                            ; M, N, O, P
+  113 000000F0 D7 1D 5D 
+              00 15 00 
+              07 00            DCW              0x1DD7, 0x5D, 0x15, 0x7 
+                                                            ; Q, R, S, T
+  114 000000F8 57 00 57 
+              01 77 01 
+              57 07            DCW              0x57, 0x157, 0x177, 0x757 
+                                                            ; U, V, W, X
+  115 00000100 77 1D 75 
+              07               DCW              0x1D77, 0x775 ; Y, Z
+  116 00000104         
+  117 00000104         ; One can also define an address using the EQUate direct
+                       ive
+  118 00000104         ;
+  119 00000104 2009C000 
+                       LED_PORT_ADR
+                               EQU              0x2009c000  ; Base address of t
+                                                            he memory that cont
+                                                            rols I/O like LEDs
+  120 00000104         
+  121 00000104                 END
+              00000000 
+              00000000 
+Command Line: --debug --xref --cpu=Cortex-M3 --apcs=interwork --depend=Lab_2_pr
+ogram.d -oLab_2_program.o -IC:\Software\Keil\ARM\RV31\INC -IC:\Software\Keil\AR
+M\CMSIS\Include -IC:\Software\Keil\ARM\Inc\NXP\LPC17xx --list=Lab_2_program.lst
+ Lab_2_program.s
+
+
+
+ARM Macro Assembler    Page 1 Alphabetic symbol ordering
+Relocatable symbols
+
+CHAR2MORSE 0000007E
+
+Symbol: CHAR2MORSE
+   Definitions
+      At line 68 in file Lab_2_program.s
+   Uses
+      At line 33 in file Lab_2_program.s
+Comment: CHAR2MORSE used once
+DELAY 000000B0
+
+Symbol: DELAY
+   Definitions
+      At line 93 in file Lab_2_program.s
+   Uses
+      At line 30 in file Lab_2_program.s
+      At line 58 in file Lab_2_program.s
+      At line 63 in file Lab_2_program.s
+
+InputLUT 000000CC
+
+Symbol: InputLUT
+   Definitions
+      At line 105 in file Lab_2_program.s
+   Uses
+      At line 21 in file Lab_2_program.s
+Comment: InputLUT used once
+LED_OFF 000000A6
+
+Symbol: LED_OFF
+   Definitions
+      At line 86 in file Lab_2_program.s
+   Uses
+      At line 53 in file Lab_2_program.s
+      At line 62 in file Lab_2_program.s
+
+LED_ON 0000009A
+
+Symbol: LED_ON
+   Definitions
+      At line 80 in file Lab_2_program.s
+   Uses
+      At line 54 in file Lab_2_program.s
+Comment: LED_ON used once
+Loop 000000C4
+
+Symbol: Loop
+   Definitions
+      At line 99 in file Lab_2_program.s
+   Uses
+      At line 101 in file Lab_2_program.s
+Comment: Loop used once
+MorseLUT 000000D0
+
+Symbol: MorseLUT
+   Definitions
+      At line 108 in file Lab_2_program.s
+   Uses
+      At line 75 in file Lab_2_program.s
+Comment: MorseLUT used once
+
+
+
+ARM Macro Assembler    Page 2 Alphabetic symbol ordering
+Relocatable symbols
+
+MultipleDelay 000000B4
+
+Symbol: MultipleDelay
+   Definitions
+      At line 94 in file Lab_2_program.s
+   Uses
+      None
+Comment: MultipleDelay unused
+My_code 00000000
+
+Symbol: My_code
+   Definitions
+      At line 7 in file Lab_2_program.s
+   Uses
+      None
+Comment: My_code unused
+NextBit 0000004C
+
+Symbol: NextBit
+   Definitions
+      At line 50 in file Lab_2_program.s
+   Uses
+      At line 60 in file Lab_2_program.s
+Comment: NextBit used once
+NextChar 0000001C
+
+Symbol: NextChar
+   Definitions
+      At line 23 in file Lab_2_program.s
+   Uses
+      At line 64 in file Lab_2_program.s
+Comment: NextChar used once
+ProcessChar 00000032
+
+Symbol: ProcessChar
+   Definitions
+      At line 33 in file Lab_2_program.s
+   Uses
+      At line 27 in file Lab_2_program.s
+Comment: ProcessChar used once
+RemoveLeadingZeroes 0000003E
+
+Symbol: RemoveLeadingZeroes
+   Definitions
+      At line 44 in file Lab_2_program.s
+   Uses
+      At line 48 in file Lab_2_program.s
+Comment: RemoveLeadingZeroes used once
+ResetLUT 0000001A
+
+Symbol: ResetLUT
+   Definitions
+      At line 20 in file Lab_2_program.s
+   Uses
+      At line 31 in file Lab_2_program.s
+Comment: ResetLUT used once
+__MAIN 00000000
+
+Symbol: __MAIN
+
+
+
+ARM Macro Assembler    Page 3 Alphabetic symbol ordering
+Relocatable symbols
+
+   Definitions
+      At line 10 in file Lab_2_program.s
+   Uses
+      At line 8 in file Lab_2_program.s
+Comment: __MAIN used once
+exitDelay 000000C8
+
+Symbol: exitDelay
+   Definitions
+      At line 103 in file Lab_2_program.s
+   Uses
+      None
+Comment: exitDelay unused
+16 symbols
+
+
+
+ARM Macro Assembler    Page 1 Alphabetic symbol ordering
+Absolute symbols
+
+LED_PORT_ADR 2009C000
+
+Symbol: LED_PORT_ADR
+   Definitions
+      At line 119 in file Lab_2_program.s
+   Uses
+      None
+Comment: LED_PORT_ADR unused
+1 symbol
+349 symbols in table
